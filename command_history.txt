@@ -1,0 +1,1000 @@
+  650  cat prometheus/prometheus.yml
+  651  nano prometheus/rules/alerts.yml
+  652  cat prometheus/rules/alerts.yml
+  653  nano alertmanager/alertmanager.yml
+  654  cat alertmanager/alertmanager.yml32
+  655  cat alertmanager/alertmanager.yml
+  656  docker compose config
+  657  sudo ss -lntp | grep -E ':(3000|3100|8080|9090|9093)\b'o
+  658  docker compose up -d
+  659  docker ps -a --filter "name=^/wordpress$"
+  660  docker inspect wordpress --format '{{ index .Config.Labels "com.docker.compose.project" }}'
+  661  docker rm wordpress
+  662  docker compose up -d
+  663  -docker compose ps
+  664  docker compose ps
+  665  curl http://localhost:3100/ready
+  666  docker compose logs --tail=30 promtail
+  667  nano promtail/promtail-config.yml
+  668  cat promtail/promtail-config.yml
+  669  nano promtail/promtail-config.yml
+  670  cat promtail/promtail-config.yml
+  671  nano promtail/promtail-config.yml
+  672  cat promtail/promtail-config.yml
+  673  docker compose restart promtail
+  674  docker compose logs --tail=30 promtail
+  675  docker compose logs --since=1m promtail
+  676  docker inspect wordpress --format '{{.Name}} | project={{index .Config.Labels "com.docker.compose.project"}}'
+  677  docker ps --format 'table {{.Names}}\t{{.Label "com.docker.compose.project"}}'
+  678  docker compose stop promtail
+  679  docker compose start promtail
+  680  docker compose logs --since=30s promtail
+  681  docker compose exec promtail cat /etc/promtail/promtail-config.yml
+  682  docker compose config | grep -A 10 -B 5 promtail
+  683  docker compose exec promtail cat /etc/promtail/config.yml
+  684  curl -s http://localhost:3100/loki/api/v1/labels
+  685  curl -s 'http://localhost:3100/loki/api/v1/label/container/values'
+  686  docker logs wordpress --tail=10
+  687  curl -s 'http://localhost:3100/loki/api/v1/query_range?query=%7Bcontainer%3D%22%2Fwordpress%22%7D&limit=5'
+  688  sudo apt update && sudo apt upgrade -y
+  689  sudo apt install ufw -y
+  690  sudo ufw default deny incoming
+  691  sudo ufw default allow outgoing
+  692  sudo ufw allow 22/tcp
+  693  sudo ufw allow 80/tcp
+  694  sudo ufw allow 443/tcp
+  695  sudo ufw enable
+  696  curl -fsSL https://get.docker.com -o get-docker.sh
+  697  sudo sh get-docker.sh
+  698  sudo usermod -aG docker $USER
+  699  sudo apt-get install docker-compose-plugin -y
+  700  docker --version
+  701  docker compose versiondocker --version
+  702  docker compose version
+  703  mkdir -p ~/forum-app/app
+  704  cd ~/forum-app
+  705  cat << 'EOF' > app/package.json
+  706  {
+  707    "name": "forum-api",
+  708    "version": "1.0.0",
+  709    "main": "server.js",
+  710    "dependencies": {
+  711      "express": "^4.18.2",
+  712      "mysql2": "^3.6.0",
+  713      "prom-client": "^14.2.0"
+  714    }
+  715  }
+  716  EOF
+  717  cat << 'EOF' > app/server.js
+  718  const express = require('express');
+  719  const client = require('prom-client');
+  720  const app = express();
+  721  const PORT = 3000;
+  722  app.use(express.json());
+  723  // Tích hợp Prometheus Metrics
+  724  const collectDefaultMetrics = client.collectDefaultMetrics;
+  725  collectDefaultMetrics();
+  726  const httpRequestCounter = new client.Counter({
+  727    name: 'forum_http_requests_total',
+  728    help: 'Tong so luong request HTTP vao Forum',
+  729    labelNames: ['method', 'route', 'status']
+  730  });
+  731  app.use((req, res, next) => {
+  732    res.on('finish', () => {
+  733      httpRequestCounter.inc({ method: req.method, route: req.path, status: res.statusCode });
+  734    });
+  735    next();
+  736  });
+  737  // Endpoint cho Prometheus thu thập dữ liệu
+  738  app.get('/metrics', async (req, res) => {
+  739    res.set('Content-Type', client.register.contentType);
+  740    res.end(await client.register.metrics());
+  741  });
+  742  // APIs Diễn đàn
+  743  app.get('/', (req, res) => res.send('Welcome to Forum API!'));
+  744  app.get('/api/topics', (req, res) => res.json([{ id: 1, name: 'Thao luan chung' }, { id: 2, name: 'Lap trinh Node.js' }]));
+  745  app.get('/api/posts', (req, res) => res.json([{ id: 1, topic_id: 1, title: 'Bai viet dau tien', content: 'Xin chao moi nguoi!' }]));
+  746  app.get('/api/users', (req, res) => res.json([{ id: 1, username: 'admin' }, { id: 2, username: 'khaquan' }]));
+  747  app.listen(PORT, () => console.log(`Forum App running on port ${PORT}`));
+  748  EOF
+  749  cat << 'EOF' > app/Dockerfile
+  750  FROM node:18-alpine
+  751  WORKDIR /usr/src/app
+  752  COPY package.json ./
+  753  RUN npm install --only=production
+  754  COPY . .
+  755  EXPOSE 3000
+  756  CMD ["node", "server.js"]
+  757  EOF
+  758  ls -la ~/forum-app/app
+  759  cd ~/forum-app
+  760  mkdir -p prometheus promtail
+  761  cat << 'EOF' > prometheus/prometheus.yml
+  762  global:
+  763    scrape_interval: 15s
+  764  scrape_configs:
+  765    - job_name: 'forum-app'
+  766      metrics_path: '/metrics'
+  767      static_configs:
+  768        - targets: ['app:3000']
+  769  EOF
+  770  cat << 'EOF' > promtail/promtail-config.yml
+  771  server:
+  772    http_listen_port: 9080
+  773    grpc_listen_port: 0
+  774  positions:
+  775    filename: /tmp/positions.yaml
+  776  clients:
+  777    - url: http://loki:3100/loki/api/v1/push
+  778  scrape_configs:
+  779    - job_name: system
+  780      static_configs:
+  781        - targets:
+  782            - localhost
+  783          labels:
+  784            job: varlogs
+  785            __path__: /var/log/*log
+  786  EOF
+  787  cat << 'EOF' > docker-compose.yml
+  788  version: '3.8'
+  789  services:
+  790    # 1. Database MySQL
+  791    db:
+  792      image: mysql:8.0
+  793      container_name: forum_db
+  794      restart: always
+  795      environment:
+  796        MYSQL_ROOT_PASSWORD: rootpassword
+  797        MYSQL_DATABASE: forum_db
+  798        MYSQL_USER: forum_user
+  799        MYSQL_PASSWORD: forum_password
+  800      volumes:
+  801        - db_data:/var/lib/mysql
+  802    # 2. Quản trị DB - phpMyAdmin
+  803    phpmyadmin:
+  804      image: phpmyadmin/phpmyadmin
+  805      container_name: forum_phpmyadmin
+  806      restart: always
+  807      environment:
+  808        PMA_HOST: db
+  809        MYSQL_ROOT_PASSWORD: rootpassword
+  810      ports:
+  811        - "8081:80"
+  812    # 3. Web App Node.js (Diễn đàn)
+  813    app:
+  814      build: ./app
+  815      container_name: forum_app
+  816      restart: always
+  817      ports:
+  818        - "3000:3000"
+  819      depends_on:
+  820        - db
+  821    # 4. Prometheus (Monitoring Metrics)
+  822    prometheus:
+  823      image: prom/prometheus:latest
+  824      container_name: forum_prometheus
+  825      restart: always
+  826      volumes:
+  827        - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+  828      ports:
+  829        - "9090:9090"
+  830    # 5. Loki (Log aggregation)
+  831    loki:
+  832      image: grafana/loki:2.9.0
+  833      container_name: forum_loki
+  834      restart: always
+  835      ports:
+  836        - "3100:3100"
+  837    # 6. Promtail (Log collector)
+  838    promtail:
+  839      image: grafana/promtail:2.9.0
+  840      container_name: forum_promtail
+  841      restart: always
+  842      volumes:
+  843        - /var/log:/var/log
+  844        - ./promtail/promtail-config.yml:/etc/promtail/config.yml
+  845      depends_on:
+  846        - loki
+  847    # 7. Grafana (Dashboard)
+  848    grafana:
+  849      image: grafana/grafana:latest
+  850      container_name: forum_grafana
+  851      restart: always
+  852      ports:
+  853        - "30000:3000"
+  854      depends_on:
+  855        - prometheus
+  856        - loki
+  857  volumes:
+  858    db_data:
+  859  EOF
+  860  docker compose up -da
+  861  c
+  862  docker compose ps
+  863  docker compose psdocker compose psdocker compose docker compose ps
+  864  docker compose ps
+  865  clear
+  866  docker compose ps
+  867  clear
+  868  docker compose ps
+  869  cd ~/forum-app
+  870  docker compose ps
+  871  docker compose up -d
+  872  whoami
+  873  hostnamectl
+  874  ip -br a
+  875  date && pwd
+  876  clear
+  877  whoami
+  878  hostnamectl
+  879  ip -br a
+  880  date && pwd
+  881  sudo systemctl enable --now docker
+  882  clear
+  883  sudo systemctl enable --now docker
+  884  sudo usermod -aG docker $USER
+  885  docker version
+  886  sudo systemctl status docker
+  887  clear
+  888  sudo systemctl enable --now docker
+  889  sudo usermod -aG docker $USER
+  890  ps -eo state,pid,comm,wchan:32 --sort=state | head -25
+  891  vmstat 1 5
+  892  lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT
+  893  sudo dmesg -T | grep -Ei 'I/O error|buffer I/O|blk_update_request|reset|timeout|ext4-fs error|soft lockup' | tail -30
+  894  df -h /
+  895  sudo journalctl -k --since "1 hour ago" --no-pager | grep -Ei 'soft lockup|I/O error|buffer I/O|blk_update_request|timed out|reset|EXT4-fs error|kswapd|jbd2' | tail -40
+  896  clear
+  897  sudo systemctl enable --now docker
+  898  sudo usermod -aG docker $USER
+  899  # (Nếu vừa thêm nhóm, hãy đăng xuất SSH ra và đăng nhập lại)
+  900  docker version
+  901  docker compose version
+  902  docker run --rm hello-world
+  903  clear
+  904  sudo mkdir -p /opt/forum15/{db,nginx,public,monitoring/mysql-exporter,grafana/provisioning/datasources,grafana/provisioning/dashboards,grafana/dashboards,logging,backup,evidence}
+  905  cd /opt/forum15
+  906  docker compose down -v
+  907  sudo rm -rf /opt/forum15
+  908  sudo mkdir -p /opt/forum15/{db,nginx,public,monitoring/mysql-exporter,grafana/provisioning/datasources,grafana/provisioning/dashboards,grafana/dashboards,logging,backup,evidence}
+  909  cd /opt/forum15
+  910  docker compose down -v
+  911  sudo rm -rf /opt/forum15
+  912  sudo mkdir -p /opt/forum15/{db,nginx,public,monitoring/mysql-exporter,grafana/provisioning/datasources,grafana/provisioning/dashboards,grafana/dashboards,logging,backup,evidence}
+  913  sudo chown -R $USER:$USER /opt/forum15
+  914  cd /opt/forum15
+  915  whoami
+  916  hostnamectl
+  917  ip -br a
+  918  date && pwd
+  919  clear
+  920  whoami
+  921  hostnamectl
+  922  ip -br a
+  923  date && pwd
+  924  clear
+  925  sudo apt update && sudo apt install -y docker.io docker-compose-v2
+  926  sudo systemctl enable --now docker
+  927  sudo usermod -aG docker $USER
+  928  clear
+  929  docker version
+  930  cd ~
+  931  clear
+  932  whoami
+  933  hostnamectl
+  934  ip -br a
+  935  date && pwd
+  936  docker version
+  937  docker compose version
+  938  docker run --rm hello-world
+  939  sudo mkdir -p /opt/forum15/{db,nginx,public,monitoring/mysql-exporter,grafana/provisioning/datasources,grafana/provisioning/dashboards,grafana/dashboards,logging,backup,evidence}
+  940  sudo chown -R $USER:$USER /opt/forum15
+  941  clear
+  942  sudo mkdir -p /opt/forum15/{db,nginx,public,monitoring/mysql-exporter,grafana/provisioning/datasources,grafana/provisioning/dashboards,grafana/dashboards,logging,backup,evidence}
+  943  sudo chown -R $USER:$USER /opt/forum15
+  944  cd /opt/forum15
+  945  pwd
+  946  tree -a -L 4
+  947  nano db/init.sh
+  948  chmod +x db/init.sh
+  949  nano .env.example
+  950  cp .env.example .env
+  951  nano .gitignore
+  952  nano package.json
+  953  nano server.js
+  954  nano public/index.html
+  955  nano public/styles.css
+  956  nano public/app.js
+  957  nano Dockerfile
+  958  nano nginx/nginx.conf
+  959  nano monitoring/mysql-exporter/.my.cnf
+  960  chmod 600 monitoring/mysql-exporter/.my.cnf
+  961  nano monitoring/prometheus.yml
+  962  nano logging/loki-config.yml
+  963  nano logging/promtail-config.yml
+  964  nano grafana/provisioning/datasources/datasources.yml
+  965  nano grafana/provisioning/dashboards/dashboards.yml
+  966  nano grafana/dashboards/de15-overview.json
+  967  docker compose config --services
+  968  nano docker-compose.yml
+  969  docker compose config --services
+  970  docker compose config --quiet 
+  971  clear
+  972  [A
+  973  clear
+  974  docker compose up -d --build
+  975  q
+  976  clear
+  977  e
+  978  q]
+  979  q
+  980  nano Dockerfile
+  981  cd /opt/forum15
+  982  nano Dockerfile
+  983  clear
+  984  docker compose up -d --build
+  985  docker compose down -vdocker compose down -vdocker compose down -vdocker compose down -v
+  986  u
+  987  cd /opt/forum15
+  988  docker compose down -v
+  989  clear
+  990  docker compose up -d
+  991  cd /opt/forum15
+  992  docker compose logs db
+  993  docker compose up -d
+  994  clear
+  995  sudo ss -lptn 'sport = :8081'
+  996  nano docker-compose.yml
+  997  clear
+  998  docker compose up -d
+  999  nano docker-compose.yml
+ 1000  sudo fuser -k 3100/tcp
+ 1001  docker compose up -d
+ 1002  nano docker-compose.yml
+ 1003  docker compose up -d
+ 1004  nano docker-compose.yml
+ 1005  clear
+ 1006  docker compose up -d
+ 1007  nano docker-compose.yml
+ 1008  docker compose up -d --build
+ 1009  clear
+ 1010  docker compose up -d --build
+ 1011  echo "" > docker-compose.yml
+ 1012  docker system prune -a --volumes -f
+ 1013  df -h
+ 1014  echo "" > docker-compose.yml
+ 1015  docker compose up -d --build
+ 1016  cat << 'EOF' > docker-compose.yml
+ 1017  version: '3.8'
+ 1018  services:
+ 1019    db:
+ 1020      image: mysql:8.4
+ 1021      container_name: forum15-db-1
+ 1022      environment:
+ 1023        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+ 1024        MYSQL_DATABASE: ${MYSQL_DATABASE}
+ 1025        MYSQL_USER: ${MYSQL_USER}
+ 1026        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+ 1027      volumes:
+ 1028        - mysql_data:/var/lib/mysql
+ 1029        - ./db/init.sh:/docker-entrypoint-initdb.d/init.sh
+ 1030      networks:
+ 1031        - forum-net
+ 1032      healthcheck:
+ 1033        test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+ 1034        interval: 10s
+ 1035        timeout: 5s
+ 1036        retries: 5
+ 1037    app:
+ 1038      build: .
+ 1039      container_name: forum15-app-1
+ 1040      environment:
+ 1041        - DB_HOST=db
+ 1042        - MYSQL_USER=${MYSQL_USER}
+ 1043        - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+ 1044        - MYSQL_DATABASE=${MYSQL_DATABASE}
+ 1045        - PORT=3000
+ 1046      depends_on:
+ 1047        db:
+ 1048          condition: service_healthy
+ 1049      networks:
+ 1050        - forum-net
+ 1051      restart: always
+ 1052    nginx:
+ 1053      image: nginx:1.27-alpine
+ 1054      container_name: forum15-nginx-1
+ 1055      ports:
+ 1056        - "8080:80"
+ 1057      volumes:
+ 1058        - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+ 1059      depends_on:
+ 1060        - app
+ 1061      networks:
+ 1062        - forum-net
+ 1063      restart: always
+ 1064    phpmyadmin:
+ 1065      image: phpmyadmin:5.2.1
+ 1066      container_name: forum15-phpmyadmin-1
+ 1067      environment:
+ 1068        PMA_HOST: db
+ 1069        UPLOAD_LIMIT: 300M
+ 1070      ports:
+ 1071        - "127.0.0.1:8082:80"
+ 1072      networks:
+ 1073        - forum-net
+ 1074      restart: always
+ 1075    mysql-exporter:
+ 1076      image: prom/mysqld-exporter:v0.15.1
+ 1077      container_name: forum15-mysql-exporter-1
+ 1078      environment:
+ 1079        DATA_SOURCE_NAME: "${MYSQL_USER}:${MYSQL_PASSWORD}@(db:3306)/${MYSQL_DATABASE}"
+ 1080      ports:
+ 1081        - "9104:9104"
+ 1082      networks:
+ 1083        - forum-net
+ 1084      restart: always
+ 1085    prometheus:
+ 1086      image: prom/prometheus:v2.51.2
+ 1087      container_name: forum15-prometheus-1
+ 1088      volumes:
+ 1089        - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+ 1090      ports:
+ 1091        - "9090:9090"
+ 1092      networks:
+ 1093        - forum-net
+ 1094      restart: always
+ 1095    grafana:
+ 1096      image: grafana/grafana:10.4.0
+ 1097      container_name: forum15-grafana-1
+ 1098      ports:
+ 1099        - "3000:3000"
+ 1100      networks:
+ 1101        - forum-net
+ 1102      restart: always
+ 1103    loki:
+ 1104      image: grafana/loki:2.9.4
+ 1105      container_name: forum15-loki-1
+ 1106      ports:
+ 1107        - "3101:3100"
+ 1108      networks:
+ 1109        - forum-net
+ 1110      restart: always
+ 1111    promtail:
+ 1112      image: grafana/promtail:2.9.4
+ 1113      container_name: forum15-promtail-1
+ 1114      volumes:
+ 1115        - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+ 1116        - /var/log:/var/log
+ 1117      networks:
+ 1118        - forum-net
+ 1119      restart: always
+ 1120    node-exporter:
+ 1121      image: prom/node-exporter:v1.7.0
+ 1122      container_name: forum15-node-exporter-1
+ 1123      ports:
+ 1124        - "9100:9100"
+ 1125      networks:
+ 1126        - forum-net
+ 1127      restart: always
+ 1128    cadvisor:
+ 1129      image: gcr.io/cadvisor/cadvisor:v0.49.1
+ 1130      container_name: forum15-cadvisor-1
+ 1131      privileged: true
+ 1132      ports:
+ 1133        - "8095:8080"
+ 1134      volumes:
+ 1135        - /:/rootfs:ro
+ 1136        - /var/run:/var/run:ro
+ 1137        - /sys:/sys:ro
+ 1138        - /var/lib/docker/:/var/lib/docker:ro
+ 1139      networks:
+ 1140        - forum-net
+ 1141      restart: always
+ 1142  volumes:
+ 1143    mysql_data:
+ 1144  networks:
+ 1145    forum-net:
+ 1146      driver: bridge
+ 1147  EOF
+ 1148  clear
+ 1149  docker compose up -d --build
+ 1150  nano docker-compose.yml
+ 1151  rm -f .docker-compose.yml.swp
+ 1152  cat << 'EOF' > docker-compose.yml
+ 1153  version: '3.8'
+ 1154  services:
+ 1155    db:
+ 1156      image: mysql:8.4
+ 1157      container_name: forum15-db-1
+ 1158      environment:
+ 1159        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+ 1160        MYSQL_DATABASE: ${MYSQL_DATABASE}
+ 1161        MYSQL_USER: ${MYSQL_USER}
+ 1162        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+ 1163      volumes:
+ 1164        - mysql_data:/var/lib/mysql
+ 1165        - ./db/init.sh:/docker-entrypoint-initdb.d/init.sh
+ 1166      networks:
+ 1167        - forum-net
+ 1168      healthcheck:
+ 1169        test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+ 1170        interval: 10s
+ 1171        timeout: 5s
+ 1172        retries: 5
+ 1173    app:
+ 1174      build: .
+ 1175      container_name: forum15-app-1
+ 1176      environment:
+ 1177        - DB_HOST=db
+ 1178        - MYSQL_USER=${MYSQL_USER}
+ 1179        - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+ 1180        - MYSQL_DATABASE=${MYSQL_DATABASE}
+ 1181        - PORT=3000
+ 1182      depends_on:
+ 1183        db:
+ 1184          condition: service_healthy
+ 1185      networks:
+ 1186        - forum-net
+ 1187      restart: always
+ 1188    nginx:
+ 1189      image: nginx:1.27-alpine
+ 1190      container_name: forum15-nginx-1
+ 1191      ports:
+ 1192        - "8080:80"
+ 1193      volumes:
+ 1194        - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+ 1195      depends_on:
+ 1196        - app
+ 1197      networks:
+ 1198        - forum-net
+ 1199      restart: always
+ 1200    phpmyadmin:
+ 1201      image: phpmyadmin:5.2.1
+ 1202      container_name: forum15-phpmyadmin-1
+ 1203      environment:
+ 1204        PMA_HOST: db
+ 1205        UPLOAD_LIMIT: 300M
+ 1206      ports:
+ 1207        - "127.0.0.1:8082:80"
+ 1208      networks:
+ 1209        - forum-net
+ 1210      restart: always
+ 1211    mysql-exporter:
+ 1212      image: prom/mysqld-exporter:v0.15.1
+ 1213      container_name: forum15-mysql-exporter-1
+ 1214      environment:
+ 1215        DATA_SOURCE_NAME: "${MYSQL_USER}:${MYSQL_PASSWORD}@(db:3306)/${MYSQL_DATABASE}"
+ 1216      ports:
+ 1217        - "9104:9104"
+ 1218      networks:
+ 1219        - forum-net
+ 1220      restart: always
+ 1221    prometheus:
+ 1222      image: prom/prometheus:v2.51.2
+ 1223      container_name: forum15-prometheus-1
+ 1224      volumes:
+ 1225        - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+ 1226      ports:
+ 1227        - "9090:9090"
+ 1228      networks:
+ 1229        - forum-net
+ 1230      restart: always
+ 1231    grafana:
+ 1232      image: grafana/grafana:10.4.0
+ 1233      container_name: forum15-grafana-1
+ 1234      ports:
+ 1235        - "3001:3000"
+ 1236      networks:
+ 1237        - forum-net
+ 1238      restart: always
+ 1239    loki:
+ 1240      image: grafana/loki:2.9.4
+ 1241      container_name: forum15-loki-1
+ 1242      ports:
+ 1243        - "3101:3100"
+ 1244      networks:
+ 1245        - forum-net
+ 1246      restart: always
+ 1247    promtail:
+ 1248      image: grafana/promtail:2.9.4
+ 1249      container_name: forum15-promtail-1
+ 1250      volumes:
+ 1251        - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+ 1252        - /var/log:/var/log
+ 1253      networks:
+ 1254        - forum-net
+ 1255      restart: always
+ 1256    node-exporter:
+ 1257      image: prom/node-exporter:v1.7.0
+ 1258      container_name: forum15-node-exporter-1
+ 1259      ports:
+ 1260        - "9100:9100"
+ 1261      networks:
+ 1262        - forum-net
+ 1263      restart: always
+ 1264    cadvisor:
+ 1265      image: gcr.io/cadvisor/cadvisor:v0.49.1
+ 1266      container_name: forum15-cadvisor-1
+ 1267      privileged: true
+ 1268      ports:
+ 1269        - "8095:8080"
+ 1270      volumes:
+ 1271        - /:/rootfs:ro
+ 1272        - /var/run:/var/run:ro
+ 1273        - /sys:/sys:ro
+ 1274        - /var/lib/docker/:/var/lib/docker:ro
+ 1275      networks:
+ 1276        - forum-net
+ 1277      restart: always
+ 1278  volumes:
+ 1279    mysql_data:
+ 1280  networks:
+ 1281    forum-net:
+ 1282      driver: bridge
+ 1283  EOF
+ 1284  clear
+ 1285  docker compose up -d
+ 1286  sed -i 's/"9090:9090"/"9091:9090"/g' docker-compose.yml
+ 1287  claerclaer
+ 1288  clear
+ 1289  docker compose up -d
+ 1290  sed -i 's/"8080:80"/"8081:80"/g' docker-compose.yml
+ 1291  clear
+ 1292  docker compose up -d
+ 1293  mkdir -p monitoring
+ 1294  cat << 'EOF' > monitoring/promtail-config.yml
+ 1295  server:
+ 1296    http_listen_port: 9080
+ 1297    grpc_listen_port: 0
+ 1298  positions:
+ 1299    filename: /tmp/positions.yaml
+ 1300  clients:
+ 1301    - url: http://loki:3100/loki/api/v1/push
+ 1302  scrape_configs:
+ 1303    - job_name: system
+ 1304      static_configs:
+ 1305        - targets:
+ 1306            - localhost
+ 1307          labels:
+ 1308            job: varlogs
+ 1309            __path__: /var/log/*log
+ 1310  EOF
+ 1311  clear
+ 1312  docker compose up -d --build
+ 1313  sed -i 's/"8081:80"/"8083:80"/g' docker-compose.yml
+ 1314  clear
+ 1315  docker compose up -d
+ 1316  rm -rf monitoring/promtail-config.yml
+ 1317  cat << 'EOF' > monitoring/promtail-config.yml
+ 1318  server:
+ 1319    http_listen_port: 9080
+ 1320    grpc_listen_port: 0
+ 1321  positions:
+ 1322    filename: /tmp/positions.yaml
+ 1323  clients:
+ 1324    - url: http://loki:3100/loki/api/v1/push
+ 1325  scrape_configs:
+ 1326    - job_name: system
+ 1327      static_configs:
+ 1328        - targets:
+ 1329            - localhost
+ 1330          labels:
+ 1331            job: varlogs
+ 1332            __path__: /var/log/*log
+ 1333  EOF
+ 1334  docker compose up -d
+ 1335  docker compose ps
+ 1336  claer
+ 1337  clear
+ 1338  claewr
+ 1339  clear
+ 1340  curl -i http://127.0.0.1:8080/health
+ 1341  lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT
+ 1342  sudo dmesg -T | grep -Ei 'I/O error|buffer I/O|blk_update_request|reset|timeout|ext4-fs error|soft lockup' | tail -30
+ 1343  free -h
+ 1344  uptime
+ 1345  docker stats --no-stream
+ 1346  clear
+ 1347  curl -i http://127.0.0.1:8080/health
+ 1348  curl -i http://127.0.0.1:8083/health
+ 1349  docker compose ps
+ 1350  docker compose logs app
+ 1351  cat << 'EOF' > server.js
+ 1352  const express = require('express');
+ 1353  const mysql = require('mysql2');
+ 1354  const path = require('path');
+ 1355  const app = express();
+ 1356  const port = process.env.PORT || 3000;
+ 1357  // Middleware
+ 1358  app.use(express.json());
+ 1359  app.use(express.urlencoded({ extended: true }));
+ 1360  app.use(express.static(path.join(__dirname, 'public')));
+ 1361  // Database Connection Pool
+ 1362  const pool = mysql.createPool({
+ 1363    host: process.env.DB_HOST || 'db',
+ 1364    user: process.env.MYSQL_USER || 'root',
+ 1365    password: process.env.MYSQL_PASSWORD || '',
+ 1366    database: process.env.MYSQL_DATABASE || 'forum_db',
+ 1367    waitForConnections: true,
+ 1368    connectionLimit: 10,
+ 1369    queueLimit: 0
+ 1370  });
+ 1371  // Health check endpoint
+ 1372  app.get('/health', (req, res) => {
+ 1373    pool.query('SELECT 1', (err) => {
+ 1374      if (err) {
+ 1375        return res.status(500).json({ status: 'error', database: 'disconnected', error: err.message });
+ 1376      }
+ 1377      res.json({ status: 'ok', service: 'forum', database: 'connected' });
+ 1378    });
+ 1379  });
+ 1380  // Metrics endpoint (Prometheus format placeholder)
+ 1381  app.get('/metrics', (req, res) => {
+ 1382    res.set('Content-Type', 'text/plain');
+ 1383    res.end('# HELP forum_requests_total Total HTTP requests\n# TYPE forum_requests_total counter\nforum_requests_total 1\n');
+ 1384  });
+ 1385  // Get all posts
+ 1386  app.get('/api/posts', (req, res) => {
+ 1387    pool.query('SELECT id, title, body, author_name, created_at FROM posts ORDER BY created_at DESC', (err, results) => {
+ 1388      if (err) {
+ 1389        return res.status(500).json({ error: err.message });
+ 1390      }
+ 1391      res.json(results);
+ 1392    });
+ 1393  });
+ 1394  // Create a new post
+ 1395  app.post('/api/posts', (req, res) => {
+ 1396    const { title, body, author_name } = req.body;
+ 1397    if (!title || !body || !author_name) {
+ 1398      return res.status(400).json({ error: 'Missing required fields' });
+ 1399    }
+ 1400    const query = 'INSERT INTO posts (title, body, author_name) VALUES (?, ?, ?)';
+ 1401    pool.query(query, [title, body, author_name], (err, results) => {
+ 1402      if (err) {
+ 1403        return res.status(500).json({ error: err.message });
+ 1404      }
+ 1405      res.status(201).json({ message: 'Post created successfully', postId: results.insertId });
+ 1406    });
+ 1407  });
+ 1408  app.listen(port, () => {
+ 1409    console.log(`Forum app listening on port ${port}`);
+ 1410  });
+ 1411  EOF
+ 1412  cat << 'EOF' > Dockerfile
+ 1413  FROM node:22-alpine
+ 1414  WORKDIR /app
+ 1415  COPY package*.json ./
+ 1416  RUN npm install --omit=dev
+ 1417  COPY . .
+ 1418  EXPOSE 3000
+ 1419  USER node
+ 1420  CMD ["node", "server.js"]
+ 1421  EOF
+ 1422  docker compose up -d --build
+ 1423  clear
+ 1424  docker compose up -d --build
+ 1425  free -h
+ 1426  sudo journactl -u docker -n 50 --no-pager
+ 1427  free -h
+ 1428  docker logs forum15-db-1
+ 1429  ap:          2.0G          0B        2.0G
+ 1430  khaquan@thusinh:~$ docker logs forum15-db-1
+ 1431  2026-10-23 08:50:59+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.4.13-1.el9 started.
+ 1432  2026-10-23 08:51:10+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+ 1433  2026-10-23 08:51:11+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.4.13-1.el9 started.
+ 1434  '/var/lib/mysql/mysql.sock' -> '/var/run/mysqld/mysqld.sock'
+ 1435  2026-10-23T08:51:12.709411Z 0 [System] [MY-015015] [Server] MySQL Server - start.
+ 1436  2026-10-23T08:51:13.309280Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.4.13) starting as process 1
+ 1437  2026-10-23T08:51:13.309298Z 0 [System] [MY-015150] [Server] Server version with update: '8.4.13.0'
+ 1438  2026-10-23T08:51:13.965213Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+ 1439  2026-10-23T08:51:46.256179Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+ 1440  2026-10-23T08:52:06.724660Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+ 1441  2026-10-23T08:52:06.724767Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.
+ 1442  2026-10-23T08:52:12.324459Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+ 1443  2026-10-23T08:52:23.526949Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: '::' port: 33060, socket: /var/run/mysqld/mysqlx.sock
+ 1444  2026-10-23T08:52:23.528233Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.4.13'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server - GPL.
+ 1445  khaquan@thusinh:~$clear
+ 1446  clear
+ 1447  cd /opt/forum15
+ 1448  docker compose up -dcd /opt/forum15
+ 1449  docker compose up -d
+ 1450  docker compose down
+ 1451  docker volume rm forum15_db_data
+ 1452  khaquan@thusinh:/opt/forum15$ docker volume rm forum15_db_data
+ 1453  Error: No such volume: forum15_db_data
+ 1454  cd /opt/forum15
+ 1455  docker compose down -v
+ 1456  docker system prune -f
+ 1457  nano /opt/forum15/.env
+ 1458  cd /opt/forum15
+ 1459  docker compose down -v
+ 1460  docker system prune -f
+ 1461  docker compose up -d --build
+ 1462  docker logs forum15-db-1 --tail 50
+ 1463  chmod +x /opt/forum15/db/init.sh
+ 1464  export COMPOSE_HTTP_TIMEOUT=300chmod +x /opt/forum15/db/init.sh
+ 1465  export COMPOSE_HTTP_TIMEOUT=300
+ 1466  chmod +x /opt/forum15/db/init.sh
+ 1467  export COMPOSE_HTTP_TIMEOUT=300
+ 1468  chmod +x /opt/forum15/db/init.sh
+ 1469  export COMPOSE_HTTP_TIMEOUT=300chmod +x /opt/forum15/db/init.sh
+ 1470  export COMPOSE_HTTP_TIMEOUT=300
+ 1471  cd /opt/forum15
+ 1472  docker compose down -v
+ 1473  docker compose up -d
+ 1474  docker logs -f forum15-db-1
+ 1475  docker compose start db
+ 1476  docker logs -f forum15-db-1docker logs -f forum15-db-1docker logs -f forum15-db-1docker logs -f forum15-db-1docker logs -f forum15-db-1
+ 1477  docker logs -f forum15-db-1
+ 1478  cd /opt/forum15
+ 1479  docker compose up -d
+ 1480  docker compose restart mysql-exporter
+ 1481  sudo systemctl restart docker
+ 1482  sudo fuser -k 9104/tcp
+ 1483  sudo systemctl stop docker.socket docker
+ 1484  sudo systemctl start docker
+ 1485  cd /opt/forum15
+ 1486  docker compose down
+ 1487  docker compose up -d
+ 1488  docker compose start db
+ 1489  docker compose up -d
+ 1490  docker compose ps
+ 1491  docker compose restart mysql-exporter
+ 1492  docker compose ps
+ 1493  for i in {1..100}; do   curl -s http://127.0.0.1:8083/ > /dev/null;   curl -s http://127.0.0.1:8083/health > /dev/null;   curl -s -X POST http://127.0.0.1:8083/api/posts -H "Content-Type: application/json" -d '{"title":"Bai test '$i'","body":"Noi dung test","author_name":"Admin"}' > /dev/null;   sleep 0.5; done
+ 1494  for i in {1..100}; do   curl -s http://127.0.0.1:8083/ > /dev/null;   curl -s http://127.0.0.1:8083/health > /dev/null;   curl -s -X POST http://127.0.0.1:8083/api/posts -H "Content-Type: application/json" -d '{"title":"Bai test '$i'","body":"Noi dung test","author_name":"Admin"}' > /dev/null;   sleep 0.5; done
+ 1495  cat /opt/forum15/grafana/dashboards/de15-overview.json
+ 1496  docker compose restart mysql-exporter
+ 1497  docker compose logs --tail 30 mysql-exporter
+ 1498  nano /opt/forum15/docker-compose.yml
+ 1499  docker compose up -d --force-recreate mysql-exporter
+ 1500  docker compose logs --tail 10 mysql-exporter
+ 1501  nano /opt/forum15/docker-compose.yml
+ 1502  docker compose up -d --force-recreate mysql-exporter
+ 1503  nano /opt/forum15/docker-compose.yml
+ 1504  docker compose up -d --force-recreate mysql-exporter
+ 1505  nano /opt/forum15/docker-compose.yml
+ 1506  docker compose up -d --force-recreate
+ 1507  nano /opt/forum15/docker-compose.yml
+ 1508  docker compose up -d --build
+ 1509  docker compose ps
+ 1510  docker compose up -d db app prometheus grafana mysql-exporter nginx phpmyadmin loki
+ 1511  docker compose down
+ 1512  docker compose up -d
+ 1513  sudo pkill -f "docker compose"
+ 1514  docker compose down -v --remove-orphans
+ 1515  docker compose up -d
+ 1516  sudo systemctl restart docker
+ 1517  sudo killall -9 dockerd containerd containerd-shim
+ 1518  sudo systemctl start docker
+ 1519  docker compose up -d
+ 1520  sudo journalctl -u docker -n 50 --no-pager
+ 1521  docker ps -a
+ 1522  docker rm -f $(docker ps -a -q)
+ 1523  docker network prune -f
+ 1524  sudo systemctl restart docker
+ 1525  cd /opt/forum15 && docker compose up -d
+ 1526  sudo pkill -9 -f "docker compose"
+ 1527  docker compose ps
+ 1528  docker compose up -d
+ 1529  sudo reboot
+ 1530  cd /opt/forum15 && docker compose up -d
+ 1531  docker compose ps
+ 1532  docker compose up -d prometheus mysql-exporter app phpmyadmin grafana nginx
+ 1533  docker compose ps
+ 1534  http://192.168.23.129:9091/targets
+ 1535  docker compose up -d prometheus mysql-exporter phpmyadmin grafana nginx
+ 1536  docker compose up -d --no-deps prometheus mysql-exporter phpmyadmin grafana nginx app
+ 1537  docker inspect --format='{{json .State.Health}}' forum15-prometheus-1
+ 1538  docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
+ 1539  sudo pkill -9 -f "docker compose"
+ 1540  docker start forum15-prometheus-1 forum15-mysql-exporter-1 forum15-grafana-1 forum15-phpmyadmin-1 forum15-nginx-1 forum15-app-1
+ 1541  docker ps --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
+ 1542  ip a
+ 1543  sudo ufw allow 9091/tcp && sudo ufw allow 9090/tcp
+ 1544  docker start forum15-prometheus-1 forum15-mysql-exporter-1 forum15-grafana-1 forum15-phpmyadmin-1 forum15-nginx-1 forum15-app-1
+ 1545  cd /opt/forum15
+ 1546  sudo rm -rf prometheus.yml
+ 1547  cat << 'EOF' | sudo tee prometheus.yml
+ 1548  global:
+ 1549    scrape_interval: 15s
+ 1550  scrape_configs:
+ 1551    - job_name: 'prometheus'
+ 1552      static_configs:
+ 1553        - targets: ['localhost:9090']
+ 1554    - job_name: 'node-exporter'
+ 1555      static_configs:
+ 1556        - targets: ['node-exporter:9100']
+ 1557    - job_name: 'cadvisor'
+ 1558      static_configs:
+ 1559        - targets: ['cadvisor:8080']
+ 1560    - job_name: 'mysql-exporter'
+ 1561      static_configs:
+ 1562        - targets: ['mysql-exporter:9104']
+ 1563    - job_name: 'loki'
+ 1564      static_configs:
+ 1565        - targets: ['loki:3100']
+ 1566  EOF
+ 1567  docker rm -f forum15-prometheus-1
+ 1568  docker compose up -d
+ 1569  cd forum15
+ 1570  find ~ -name "docker-compose.yml" 2>/dev/null
+ 1571  cd forum-app
+ 1572  docker compose up -d
+ 1573  docker compose up -d --no-recreate
+ 1574  docker compose up -d app prometheus grafana mysql mysql-exporter cadvisor node-exporter
+ 1575  docker compose pull loki
+ 1576  docker compose pull promtail
+ 1577  docker compose up -d
+ 1578  docker compose up -d --no-build
+ 1579  sudo nano /etc/docker/daemon.json
+ 1580  sudo systemctl restart docker
+ 1581  docker compose up -d --build
+ 1582  docker ps
+ 1583  docker compose restart app
+ 1584  cd forum-app
+ 1585  docker compose restart app
+ 1586  docker compose down
+ 1587  docker compose up -d
+ 1588  docker compose up -d db
+ 1589  docker compose up -d
+ 1590  docker compose up -d db
+ 1591  docker ps
+ 1592  docker restart forum15-app-1
+ 1593  docker logs forum_db --tail 20
+ 1594  grep -i -E "MYSQL_ROOT_PASSWORD|MYSQL_DATABASE|MYSQL_USER|MYSQL_PASSWORD" ~/forum-app/docker-compose.yml
+ 1595  cd ~/forum-app
+ 1596  docker compose down -v
+ 1597  docker compose up -d
+ 1598  clear
+ 1599  cd ~/forum-app
+ 1600  mkdir -p backup
+ 1601  nano backup.sh
+ 1602  chmod +x backup.sh
+ 1603  ./backup.sh
+ 1604  ls -lh backup/
+ 1605  gzip -t backup/*.sql.gz
+ 1606  git add backup.sh backup/ README.md hardening.sh 2>/dev/null || git add .
+ 1607  git commit -m "docs: add hardening backup tests and evidence"
+ 1608  git push origin main
+ 1609  ./backup.sh
+ 1610  docker compose exec -T db mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS restore_test;"
+ 1611  grep MYSQL_ROOT_PASSWORD .env
+ 1612  docker inspect forum15-db | grep MYSQL_ROOT_PASSWORD
+ 1613  docker inspect forum15-db-1 | grep MYSQL_ROOT_PASSWORD
+ 1614  docker compose exec -T db mysql -u root -prootpassword123 -e "CREATE DATABASE IF NOT EXISTS restore_test;"
+ 1615  docker exec -i forum15-db-1 mysql -uroot -prootpassword123 -e "CREATE DATABASE IF NOT EXISTS restore_test;"
+ 1616  docker exec -i --user root forum15-db-1 mysql --skip-password -e "CREATE DATABASE IF NOT EXISTS restore_test;"
+ 1617  zcat backup/forum_db-*.sql.gz | docker exec -i --user root forum15-db-1 mysql --skip-password restore_test
+ 1618  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW TABLES FROM restore_test; SELECT COUNT(*) AS posts FROM restore_test.posts;"
+ 1619  docker exec -i --user root forum15-db-1 mysqldump --skip-password forum_db | gzip > backup/forum_db-$(date +%Y%m%d-%H%M%S).sql.gz
+ 1620  ls -lh backup/
+ 1621  zcat $(ls -t backup/forum_db-*.sql.gz | head -n1) | docker exec -i --user root forum15-db-1 mysql --skip-password restore_test
+ 1622  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW TABLES FROM restore_test; SELECT COUNT(*) AS posts FROM restore_test.posts;"
+ 1623  docker exec -i --user root forum15-db-1 mysqldump --skip-password forum_db | gzip > backup/forum_db-$(date +%Y%m%d-%H%M%S).sql.gz
+ 1624  ls -lh backup/
+ 1625  zcat $(ls -t backup/forum_db-*.sql.gz | head -n1) | docker exec -i --user root forum15-db-1 mysql --skip-password restore_test
+ 1626  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW TABLES FROM restore_test; SELECT COUNT(*) AS posts FROM restore_test.posts;"
+ 1627  clear
+ 1628  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW DATABASES;"
+ 1629  docker exec -i --user root forum15-db-1 mysql --skip-password -e "CREATE DATABASE IF NOT EXISTS forum_db;"
+ 1630  ysql --skip-password forum_db < db/init.sql 2>/dev/null || docker compose exec -T db sh -c 'mysql -u root --skip-password forum_db < /docker-entrypoint-initdb.d/init.sql' 2>/dev/null || true
+ 1631  bash db/init.sh 2>/dev/null || true
+ 1632  curl -X POST http://127.0.0.1:8080/api/posts -H "Content-Type: application/json" -d '{"title":"Bài kiểm thử","body":"Nội dung được tạo trên máy của tôi","author_name":"Khả Quân"}'
+ 1633  docker exec -i --user root forum15-db-1 mysqldump --skip-password forum_db | gzip > backup/forum_db-$(date +%Y%m%d-%H%M%S).sql.gz
+ 1634  zcat $(ls -t backup/forum_db-*.sql.gz | head -n1) | docker exec -i --user root forum15-db-1 mysql --skip-password restore_test
+ 1635  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW TABLES FROM restore_test; SELECT COUNT(*) AS posts FROM restore_test.posts;"
+ 1636  find . -name "*.sql"
+ 1637  docker exec -i --user root forum15-db-1 mysql --skip-password forum_db -e "CREATE TABLE IF NOT EXISTS posts (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(160) NOT NULL, body TEXT NOT NULL, author_name VARCHAR(80) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+ 1638  docker exec -i --user root forum15-db-1 mysql --skip-password forum_db -e "INSERT INTO posts (title, body, author_name) VALUES ('Bài kiểm thử', 'Nội dung được tạo trên máy của tôi', 'Khả Quân');"
+ 1639  docker exec -i --user root forum15-db-1 mysqldump --skip-password forum_db | gzip > backup/forum_db-$(date +%Y%m%d-%H%M%S).sql.gz
+ 1640  zcat $(ls -t backup/forum_db-*.sql.gz | head -n1) | docker exec -i --user root forum15-db-1 mysql --skip-password restore_test
+ 1641  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW TABLES FROM restore_test; SELECT COUNT(*) AS posts FROM restore_test.posts;"
+ 1642  clear
+ 1643  docker exec -i --user root forum15-db-1 mysql --skip-password forum_db -e "CREATE TABLE IF NOT EXISTS posts (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(160) NOT NULL, body TEXT NOT NULL, author_name VARCHAR(80) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+ 1644  docker exec -i --user root forum15-db-1 mysql --skip-password forum_db -e "INSERT INTO posts (title, body, author_name) VALUES ('Bài kiểm thử', 'Nội dung được tạo trên máy của tôi', 'Khả Quân');"
+ 1645  docker exec -i --user root forum15-db-1 mysqldump --skip-password forum_db | gzip > backup/forum_db-$(date +%Y%m%d-%H%M%S).sql.gz
+ 1646  zcat $(ls -t backup/forum_db-*.sql.gz | head -n1) | docker exec -i --user root forum15-db-1 mysql --skip-password restore_test
+ 1647  docker exec -i --user root forum15-db-1 mysql --skip-password -e "SHOW TABLES FROM restore_test; SELECT COUNT(*) AS posts FROM restore_test.posts;"
+ 1648  sudo ufw default deny incoming && sudo ufw default allow outgoing && sudo ufw allow 22/tcp && sudo ufw allow 8080/tcp && sudo ufw --force enable && sudo ufw status verbose
+ 1649  history > command_history.txt
